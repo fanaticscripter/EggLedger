@@ -87,10 +87,20 @@ xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
             }"
             >
               <div ref="playerIdSelectRef" class="relative flex-grow focus-within:z-10">
+                <!-- Overlay to tag the input with the corresponding nickname (if the playerId in the input is known). -->
+                <div
+                  v-if="nicknameForSelectedPlayerId"
+                  class="absolute top-0 left-0 w-full px-3 py-2 truncate border border-transparent text-sm text-gray-500 tabular-nums"
+                  style="z-index: -10"
+                >
+                  <span class="invisible whitespace-pre">{{ playerId }}</span> ({{
+                  nicknameForSelectedPlayerId }})
+                </div>
+
                 <input
                   ref="playerIdInputRef"
                   type="text"
-                  class="focus:ring-blue-500 focus:border-blue-500 block w-full rounded-none rounded-l-md text-sm border-gray-300 tabular-nums"
+                  class="focus:ring-blue-500 focus:border-blue-500 block w-full rounded-none rounded-l-md text-sm border-gray-300 bg-transparent tabular-nums"
                   placeholder="EI1234567890123456"
                   v-bind:value="playerId"
                   v-on:focus="openPlayerIdDropdown"
@@ -404,6 +414,14 @@ xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
           Interrupted: 'Interrupted',
         };
 
+        function normalizePlayerId(id) {
+          id = id.trim();
+          if (id.match(/^EI[0-9]{16}$/i)) {
+            return id.toUpperCase();
+          }
+          return id;
+        }
+
         function isIdle(state) {
           return ![
             AppState.FetchingSave,
@@ -427,6 +445,15 @@ xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
             // ===== Player ID input and dropdown =====
             const knownAccounts = Vue.ref(previouslyKnownAccounts);
             const playerId = Vue.ref(previouslyKnownAccounts[0]?.id ?? '');
+            const nicknameForSelectedPlayerId = Vue.computed(() => {
+              const id = normalizePlayerId(playerId.value);
+              for (const account of knownAccounts.value) {
+                if (account.id === id) {
+                  return account.nickname;
+                }
+              }
+              return null;
+            });
             const playerIdSelectRef = Vue.ref(null);
             const playerIdInputRef = Vue.ref(null);
             const playerIdSubmitRef = Vue.ref(null);
@@ -469,8 +496,9 @@ xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
             });
 
             const fetchPlayerData = async () => {
-              if (playerId.value.trim() !== '') {
-                await window.fetchPlayerData(playerId.value.trim());
+              normalizedId = normalizePlayerId(playerId.value);
+              if (normalizedId !== '') {
+                await window.fetchPlayerData(normalizedId);
               }
             };
 
@@ -576,6 +604,7 @@ xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
 
               knownAccounts,
               playerId,
+              nicknameForSelectedPlayerId,
               playerIdSelectRef,
               playerIdInputRef,
               playerIdSubmitRef,
