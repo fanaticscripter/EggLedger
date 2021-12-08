@@ -163,13 +163,22 @@ xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
             >
             <template v-else-if="currentState === AppState.Success">
               Successfully exported to:
-              <button
-                v-for="file in exportedFiles"
-                class="block text-green-500 hover:text-green-600 underline"
-                v-on:click="openFile(file)"
-              >
-                {{ file }}
-              </button>
+              <div class="grid gap-x-2" style="grid-template-columns: repeat(2, max-content)">
+                <template v-for="file in exportedFiles" v-bind:key="file">
+                  <button
+                    class="text-green-500 hover:text-green-600 underline"
+                    v-on:click="openFile(file)"
+                  >
+                    {{ file }}
+                  </button>
+                  <button
+                    class="text-blue-500 hover:text-blue-600 underline truncate"
+                    v-on:click="openFileInFolder(file)"
+                  >
+                    open in folder
+                  </button>
+                </template>
+              </div>
             </template>
             <template v-else-if="currentState === AppState.Failed">
               Data fetching failed. Please try again.<br />
@@ -385,6 +394,7 @@ xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
       // - fetchPlayerData(playerId string)
       // - stopFetchingPlayerData()
       // - openFile(file string)
+      // - openFileInFolder(file string)
       // - openURL(url string)
 
       // Interrupt worker if the page is reloaded or closed.
@@ -625,6 +635,7 @@ xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
               hhmmss,
 
               openFile: window.openFile,
+              openFileInFolder: window.openFileInFolder,
               openURL: window.openURL,
             };
           },

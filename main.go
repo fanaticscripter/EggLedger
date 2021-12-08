@@ -491,11 +491,23 @@ func main() {
 	})
 
 	ui.MustBind("openFile", func(file string) {
-		_ = open.Start(filepath.Join(_rootDir, file))
+		path := filepath.Join(_rootDir, file)
+		if err := open.Start(path); err != nil {
+			log.Errorf("opening %s: %s", path, err)
+		}
+	})
+
+	ui.MustBind("openFileInFolder", func(file string) {
+		path := filepath.Join(_rootDir, file)
+		if err := openFolderAndSelect(path); err != nil {
+			log.Errorf("opening %s in folder: %s", path, err)
+		}
 	})
 
 	ui.MustBind("openURL", func(url string) {
-		_ = open.Start(url)
+		if err := open.Start(url); err != nil {
+			log.Errorf("opening %s: %s", url, err)
+		}
 	})
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

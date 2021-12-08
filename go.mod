@@ -3,6 +3,7 @@ module github.com/fanaticscripter/EggLedger
 go 1.17
 
 require (
+	github.com/andybrewer/mack v0.0.0-20200226161639-15be3d47cc54
 	github.com/dustin/go-humanize v1.0.0
 	github.com/golang-migrate/migrate/v4 v4.15.1
 	github.com/mattn/go-sqlite3 v1.14.9
