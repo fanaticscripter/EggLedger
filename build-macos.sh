@@ -1,4 +1,5 @@
 #!/usr/bin/env zsh
+setopt nounset errexit
 app=dist/EggLedger.app
 version=$(<VERSION)
 echo "generating $app v${version}..."
