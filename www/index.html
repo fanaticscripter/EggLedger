@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>EggLedger</title>
+    <link rel="icon" href="images/icon-256.png" />
+    <link rel="stylesheet" href="index.css" />
+    <script src="vue.global.prod.js"></script>
+    <script src="shortcuts.js"></script>
+  </head>
+  <body>
+    <div id="app" class="h-stretch">
+      <!-- Set display to none initially and reset it once mounted to avoid flash of unrendered template. -->
+      <div v-unhide class="h-stretch flex flex-col space-y-3 pb-3" style="display: none">
+        <div class="h-11 flex-shrink-0 bg-blue-50">
+          <div
+            class="h-full flex items-end max-w-7xl w-full mx-auto px-4 space-x-1.5 border-b border-gray-300"
+          >
+            <div
+              v-for="tab in [UITab.Ledger, UITab.About]"
+              v-bind:key="tab"
+              class="relative -bottom-px px-4 pt-1.5 pb-1 text-sm font-medium text-gray-700 border border-gray-300 rounded-t-md"
+              v-bind:class="tab === activeTab ? 'bg-white border-b-transparent' : 'bg-gray-100 hover:bg-gray-50 cursor-pointer'"
+              v-on:click="activeTab = tab"
+            >
+              {{ tab }}
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="appIsInForbiddenDirectory || appIsTranslocated"
+          v-show="activeTab === UITab.Ledger"
+          class="flex-1 flex flex-col max-w-7xl w-full mx-auto px-4 space-y-3 overflow-y-scroll"
+        >
+          <div class="text-sm text-gray-700 space-y-1">
+            <template v-if="appIsTranslocated">
+              <p class="text-red-700">
+                EggLedger.app was launched in a jailed environment due to a macOS security feature.
+                The app cannot write data to disk in this environment. To work around this,
+                <a
+                  v-external-link
+                  href="https://support.apple.com/guide/terminal/open-or-quit-terminal-apd5265185d-f365-44cb-8b09-71a064a42125/mac"
+                  target="_blank"
+                  class="text-blue-500 hover:text-blue-600 underline"
+                  >open Terminal.app</a
+                >, enter the following command and press return:
+              </p>
+              <pre class="p-2 rounded-md bg-gray-50 text-xs">
+xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
+              >
+              <p class="text-red-700">
+                Relaunching the app at this point should fix the problem. Change the app path in the
+                command above if you unpacked the app to a different path than
+                EggLedger/EggLedger.app in the Downloads folder.
+              </p>
+              <p>
+                (Normally, dragging the app to /Applications disables the jailing feature. However,
+                due to how this app stores data, /Applications is not a suitable location to put it.
+                See "Where does EggLedger store data?" in the About tab for more details.)
+              </p>
+            </template>
+
+            <template v-else>
+              <p class="text-red-700">
+                You app is located in <span class="text-indigo-700">{{ appDirectory }}</span>. The
+                app stores all its data relative to itself, which would pollute this shared folder.
+                Please close this window, create a separate folder for EggLedger, move the app into
+                it, and try again.
+              </p>
+              <p>See "Where does EggLedger store data?" in the About tab for more details.</p>
+            </template>
+          </div>
+        </div>
+
+        <div
+          v-else
+          v-show="activeTab === UITab.Ledger"
+          class="flex-1 flex flex-col max-w-7xl w-full mx-auto px-4 space-y-3 overflow-hidden"
+        >
+          <div>
+            <form
+              class="mt-1 flex rounded-md shadow-sm"
+              v-on:submit="event => {
+              event.preventDefault();
+              closePlayerIdDropdown();
+              fetchPlayerData();
+            }"
+            >
+              <div ref="playerIdSelectRef" class="relative flex-grow focus-within:z-10">
+                <input
+                  ref="playerIdInputRef"
+                  type="text"
+                  class="focus:ring-blue-500 focus:border-blue-500 block w-full rounded-none rounded-l-md text-sm border-gray-300 tabular-nums"
+                  placeholder="EI1234567890123456"
+                  v-bind:value="playerId"
+                  v-on:focus="openPlayerIdDropdown"
+                  v-on:input="playerId = $event.target.value"
+                />
+
+                <ul
+                  v-if="playerIdDropdownOpen && knownAccounts.length > 0"
+                  class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm"
+                  tabindex="-1"
+                >
+                  <li
+                    v-for="account in knownAccounts"
+                    v-bind:key="account.id"
+                    class="text-sm text-gray-900 hover:text-white hover:bg-blue-500 cursor-pointer select-none relative py-1 pl-3 tabular-nums"
+                    v-on:click="selectPlayerId(account.id)"
+                  >
+                    {{ account.id }} ({{ account.nickname }})
+                  </li>
+                </ul>
+              </div>
+              <button
+                v-if="idle"
+                ref="playerIdSubmitRef"
+                type="submit"
+                class="-ml-px relative w-20 text-center space-x-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-gray-50 disabled:hover:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                v-bind:disabled="playerId.trim() === ''"
+              >
+                Fetch
+              </button>
+              <button
+                v-else
+                type="button"
+                class="-ml-px relative w-20 text-center space-x-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 disabled:opacity-50 disabled:hover:bg-gray-50 disabled:hover:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                v-on:click="stopFetchingPlayerData()"
+              >
+                Stop
+              </button>
+            </form>
+          </div>
+
+          <div class="h-14 px-2 py-1 text-xs text-gray-500 bg-gray-50 rounded-md tabular-nums">
+            <template v-if="currentState === AppState.FetchingSave">Fetching save...</template>
+            <template v-else-if="currentState === AppState.FetchingMissions">
+              <div>
+                Fetching missions...<br />
+                {{ missionProgress.finished }}/{{ missionProgress.total }}, ETA {{
+                missionProgress.eta }}
+              </div>
+              <div class="h-3 relative rounded-full overflow-hidden mt-1">
+                <div class="w-full h-full bg-gray-200 absolute"></div>
+                <div
+                  class="h-full absolute rounded-full bg-green-500"
+                  v-bind:style="{ width: missionProgress.finishedPercentage }"
+                ></div>
+              </div>
+            </template>
+            <template v-else-if="currentState === AppState.ExportingData"
+              >Exporting data...</template
+            >
+            <template v-else-if="currentState === AppState.Success">
+              Successfully exported to:
+              <button
+                v-for="file in exportedFiles"
+                class="block text-green-500 hover:text-green-600 underline"
+                v-on:click="openFile(file)"
+              >
+                {{ file }}
+              </button>
+            </template>
+            <template v-else-if="currentState === AppState.Failed">
+              Data fetching failed. Please try again.<br />
+              <a
+                v-external-link
+                href="https://wasmegg.netlify.app/#/contact"
+                target="_blank"
+                class="text-blue-500 hover:text-blue-600 underline"
+                >Get help</a
+              >
+            </template>
+            <template v-else-if="currentState === AppState.Interrupted">Interrupted.</template>
+          </div>
+
+          <div
+            ref="messagesRef"
+            class="flex-1 px-2 py-1 overflow-scroll shadow-sm block text-xs font-mono text-gray-700 bg-gray-50 rounded-md"
+          >
+            <div v-for="(message, i) in messages" v-bind:key="i" class="whitespace-pre">
+              <span v-bind:class="message.isError ? 'text-red-700' : 'text-green-700'"
+                >{{ hhmmss(message.timestamp) }}|</span
+              >
+              {{ message.content }}
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-show="activeTab === UITab.About"
+          class="flex-1 max-w-7xl w-full mx-auto px-4 overflow-y-scroll"
+        >
+          <div class="text-sm text-gray-700 space-y-2">
+            <p class="space-x-3">
+              <a
+                v-external-link
+                href="https://github.com/fanaticscripter/EggLedger/releases"
+                target="_blank"
+                class="text-green-500 hover:text-green-600 underline"
+                >Check for updates</a
+              >
+              <a
+                v-external-link
+                href="https://wasmegg.netlify.app/#/contact"
+                target="_blank"
+                class="text-green-500 hover:text-green-600 underline"
+                >Get help</a
+              >
+              <a
+                v-external-link
+                href="https://wasmegg.netlify.app/"
+                target="_blank"
+                class="text-green-500 hover:text-green-600 underline"
+                >More tools</a
+              >
+              <a
+                v-external-link
+                href="https://wasmegg.netlify.app/#/donate"
+                target="_blank"
+                class="text-green-500 hover:text-green-600 underline"
+                >Donate</a
+              >
+            </p>
+
+            <div class="space-y-1">
+              <h2 class="font-bold">What does EggLedger do?</h2>
+              <p>
+                EggLedger helps export your spaceship mission data, including loot from each
+                mission, to .xlsx (Excel) and .csv formats for further analysis. It is an extension
+                to the
+                <a
+                  v-external-link
+                  href="https://wasmegg.netlify.app/rockets-tracker/"
+                  target="_blank"
+                  class="text-blue-500 hover:text-blue-600 underline"
+                  >rockets tracker</a
+                >, answering questions like "from which mission did I obtain this legendary
+                artifact?" and "how many of this item dropped from my ships?" which can't be
+                answered there due to technical or UI limitations.
+              </p>
+            </div>
+            <hr />
+
+            <div class="space-y-1">
+              <h2 class="font-bold">How do I use EggLedger?</h2>
+              <p>
+                Go to the Ledger tab, enter your Egg, Inc. account ID (not to be confused with your
+                nickname), and press "Fetch". First session for an account could take a while,
+                proportional to the number of missions you have completed. Subsequent sessions will
+                only fetch unrecorded missions.
+                <span class="underline">Data for multiple accounts can coexist.</span>
+              </p>
+            </div>
+            <hr />
+
+            <div class="space-y-1">
+              <h2 class="font-bold">Where do I find my Egg, Inc. account ID?</h2>
+              <p>
+                Open the game menu
+                <img
+                  src="images/icon_menu.webp"
+                  class="inline h-5 w-5 p-0.5 relative -top-px border border-gray-300 rounded-full"
+                />
+                (lower left corner), choose Settings
+                <img
+                  src="images/icon_settings.webp"
+                  class="inline h-5 w-5 relative -top-px border border-gray-300 rounded-full"
+                />, then click on "Privacy & Data". Your ID is at the bottom.
+                <span class="underline">It should look like EI1234567890123456</span>; that's the
+                letters "EI" followed by 16 digits.
+              </p>
+              <p>
+                Alternatively, if you choose Help
+                <img
+                  src="images/icon_help.webp"
+                  class="inline h-5 w-5 relative -top-px border border-gray-300 rounded-full"
+                />
+                in the main menu and click on "Data Loss Issue", the game will auto-compose an email
+                with your ID in the subject.
+              </p>
+            </div>
+            <hr />
+
+            <div class="space-y-1">
+              <h2 class="font-bold">Why are my latest missions missing?</h2>
+              <p>
+                The server backup is probably out of date. Pay attention to the message printed
+                about the freshness of your backup whenever your backup is fetched.
+              </p>
+              <p>
+                The game, while active, backs up your game state to Egg, Inc.'s server every couple
+                of minutes if network condition allows, but these are mostly unpredictable.
+                <span class="underline"
+                  >Force closing and reopening the game, or switching to another farm, can fairly
+                  reliably trigger a new backup.</span
+                >
+              </p>
+              <p>
+                However, even after an app-initiated backup, it may take an unpredictable amount of
+                time (usually no longer than a minute or two) for the game server to serve the
+                updated backup through its API. EggLedger won't see the missions until then.
+              </p>
+            </div>
+            <hr />
+
+            <div class="space-y-1">
+              <h2 class="font-bold">Where does EggLedger store data?</h2>
+              <p>
+                All configurations, data, and exported files are stored in the same directory as the
+                EggLedger application.
+                <span class="underline"
+                  >Make sure you put EggLedger in a directory of its own, and don't touch the
+                  "internal" directory</span
+                >
+                (or you risk data corruption). If you want to uninstall EggLedger, just delete the
+                directory, and it won't leave any trace on your system.
+              </p>
+            </div>
+            <hr />
+
+            <div class="space-y-1">
+              <h2 class="font-bold">Where do I get @mk2's autograph?</h2>
+              <p>
+                <a
+                  v-external-link
+                  href="https://areyousure.netlify.app/"
+                  target="_blank"
+                  class="text-blue-500 hover:text-blue-600 underline"
+                  >Are you sure</a
+                >
+                you want @mk2's autograph?
+              </p>
+            </div>
+            <hr />
+
+            <div class="space-y-1">
+              <h2 class="font-bold">Known issues</h2>
+              <p>Since this application piggybacks on Chrome, there are a few known limitations:</p>
+              <ul class="list-decimal list-inside">
+                <li>On macOS, clicking on the app in dock can open a new browser window.</li>
+                <li>On Windows, resolution of the task bar app icon is garbage.</li>
+              </ul>
+            </div>
+            <hr />
+          </div>
+        </div>
+
+        <footer class="text-center text-sm text-gray-500">
+          <a
+            v-external-link
+            href="https://github.com/fanaticscripter/EggLedger"
+            target="_blank"
+            class="text-gray-500 hover:text-gray-600 underline"
+            >EggLedger</a
+          >
+          v{{ appVersion }} by @<a
+            v-external-link
+            href="https://wasmegg.netlify.app/"
+            target="_blank"
+            class="text-gray-500 hover:text-gray-600 underline"
+            >mk2</a
+          >
+        </footer>
+      </div>
+    </div>
+
+    <script>
+      // Global bindings from the go side:
+      // - appVersion()
+      // - appDirectory()
+      // - appIsInForbiddenDirectory()
+      // - appIsTranslocated()
+      // - knownAccounts()
+      // - fetchPlayerData(playerId string)
+      // - stopFetchingPlayerData()
+      // - openFile(file string)
+      // - openURL(url string)
+
+      // Interrupt worker if the page is reloaded or closed.
+      window.addEventListener('beforeunload', async () => {
+        await window.stopFetchingPlayerData();
+      });
+
+      (async function () {
+        const appVersion = await window.appVersion();
+        const appDirectory = await window.appDirectory();
+        const appIsInForbiddenDirectory = await window.appIsInForbiddenDirectory();
+        const appIsTranslocated = await window.appIsTranslocated();
+        const previouslyKnownAccounts = (await window.knownAccounts()) ?? [];
+
+        const UITab = {
+          Ledger: 'Ledger',
+          About: 'About',
+        };
+
+        const AppState = {
+          AwaitingInput: 'AwaitingInput',
+          FetchingSave: 'FetchingSave',
+          FetchingMissions: 'FetchingMissions',
+          ExportingData: 'ExportingData',
+          Success: 'Success',
+          Failed: 'Failed',
+          Interrupted: 'Interrupted',
+        };
+
+        function isIdle(state) {
+          return ![
+            AppState.FetchingSave,
+            AppState.FetchingMissions,
+            AppState.ExportingData,
+          ].includes(state);
+        }
+
+        function hhmmss(date) {
+          const hh = date.getHours().toString().padStart(2, '0');
+          const mm = date.getMinutes().toString().padStart(2, '0');
+          const ss = date.getSeconds().toString().padStart(2, '0');
+          return `${hh}:${mm}:${ss}`;
+        }
+
+        const app = Vue.createApp({
+          setup() {
+            // ===== Tab =====
+            const activeTab = Vue.ref(UITab.Ledger);
+
+            // ===== Player ID input and dropdown =====
+            const knownAccounts = Vue.ref(previouslyKnownAccounts);
+            const playerId = Vue.ref(previouslyKnownAccounts[0]?.id ?? '');
+            const playerIdSelectRef = Vue.ref(null);
+            const playerIdInputRef = Vue.ref(null);
+            const playerIdSubmitRef = Vue.ref(null);
+            const playerIdDropdownOpen = Vue.ref(false);
+            const openPlayerIdDropdown = () => {
+              playerIdDropdownOpen.value = true;
+            };
+            const closePlayerIdDropdown = () => {
+              playerIdDropdownOpen.value = false;
+              if (playerId.value.trim() !== '' && playerIdSubmitRef.value !== null) {
+                playerIdSubmitRef.value.focus();
+              } else {
+                playerIdInputRef.value.blur();
+              }
+            };
+            const selectPlayerId = id => {
+              playerId.value = id;
+              closePlayerIdDropdown();
+            };
+            // Close dropdown when clicking or focusing elsewhere.
+            const handleMousedown = event => {
+              const target = event.target;
+              if (!playerIdSelectRef.value.contains(target)) {
+                closePlayerIdDropdown();
+              }
+            };
+            const handleFocus = () => {
+              const active = document.activeElement;
+              if (!playerIdSelectRef.value.contains(active)) {
+                closePlayerIdDropdown();
+              }
+            };
+            Vue.onMounted(() => {
+              window.addEventListener('mousedown', handleMousedown);
+              window.addEventListener('focus', handleFocus, true);
+            });
+            Vue.onUnmounted(() => {
+              window.removeEventListener('mousedown', handleMousedown);
+              window.removeEventListener('focus', handleFocus);
+            });
+
+            const fetchPlayerData = async () => {
+              if (playerId.value.trim() !== '') {
+                await window.fetchPlayerData(playerId.value.trim());
+              }
+            };
+
+            const stopFetchingPlayerData = async () => {
+              await window.stopFetchingPlayerData();
+            };
+
+            // ===== App state =====
+            const currentState = Vue.ref(AppState.AwaitingInput);
+            const idle = Vue.computed(() => isIdle(currentState.value));
+
+            const missionProgress = Vue.ref({
+              total: 0,
+              finished: 0,
+              finishedPercentage: '0%',
+              expectedFinishTimestamp: 0,
+              eta: '',
+            });
+            const getEta = finish => {
+              const eta = Math.round(Math.max(finish - Date.now() / 1000, 0));
+              const h = Math.floor(eta / 3600).toString();
+              const mm = Math.floor((eta % 3600) / 60)
+                .toString()
+                .padStart(2, '0');
+              const ss = Math.floor(eta % 60)
+                .toString()
+                .padStart(2, '0');
+              return `${h}:${mm}:${ss}`;
+            };
+            let etaIntervalId;
+            Vue.onMounted(() => {
+              etaIntervalId = setInterval(() => {
+                missionProgress.value.eta = getEta(missionProgress.value.expectedFinishTimestamp);
+              }, 200);
+            });
+            Vue.onUnmounted(() => clearInterval(etaIntervalId));
+
+            const exportedFiles = Vue.ref([]);
+
+            // ===== Messages buffer =====
+            const messages = Vue.ref([]);
+            // Auto scroll messaged buffer to bottom, but only if the user hasn't scrolled up manually.
+            const messagesRef = Vue.ref(null);
+            const messagesScrolledUp = Vue.ref(false);
+            // Check if user scrolled up, before the content changes.
+            Vue.watch(
+              messages,
+              () => {
+                const textarea = messagesRef.value;
+                messagesScrolledUp.value =
+                  textarea.scrollTop + textarea.clientHeight < textarea.scrollHeight;
+              },
+              { deep: true }
+            );
+            // Conditionally scroll to bottom after the content changes.
+            Vue.watch(
+              messages,
+              () => {
+                const textarea = messagesRef.value;
+                if (!messagesScrolledUp.value) {
+                  textarea.scrollTop = textarea.scrollHeight;
+                }
+              },
+              { deep: true, flush: 'post' }
+            );
+
+            // ===== Global bindings =====
+            // Bind a bunch of state updater functions to the global scope so that the go side can
+            // push state updates.
+            window.updateKnownAccounts = accounts => {
+              knownAccounts.value = accounts;
+            };
+            window.updateState = newState => {
+              currentState.value = newState;
+            };
+            window.updateMissionProgress = newProgress => {
+              missionProgress.value = {
+                ...newProgress,
+                eta: getEta(newProgress.expectedFinishTimestamp),
+              };
+            };
+            window.updateExportedFiles = newFiles => {
+              exportedFiles.value = newFiles;
+            };
+            window.emitMessage = (content, isError) => {
+              messages.value.push({
+                timestamp: new Date(),
+                content,
+                isError,
+              });
+            };
+
+            return {
+              appVersion,
+              appDirectory,
+              appIsInForbiddenDirectory,
+              appIsTranslocated,
+
+              UITab,
+              AppState,
+
+              activeTab,
+
+              knownAccounts,
+              playerId,
+              playerIdSelectRef,
+              playerIdInputRef,
+              playerIdSubmitRef,
+              playerIdDropdownOpen,
+              openPlayerIdDropdown,
+              closePlayerIdDropdown,
+              selectPlayerId,
+              fetchPlayerData,
+              stopFetchingPlayerData,
+
+              currentState,
+              idle,
+              missionProgress,
+              exportedFiles,
+
+              messagesRef,
+              messages,
+              hhmmss,
+
+              openFile: window.openFile,
+              openURL: window.openURL,
+            };
+          },
+        });
+
+        app.directive('unhide', {
+          mounted(el) {
+            el.style.display = '';
+          },
+        });
+
+        // <a v-external-link> opens the link in the default browser rather than the in-app browser.
+        app.directive('external-link', {
+          mounted(el) {
+            el.addEventListener('click', event => {
+              event.preventDefault();
+              window.openURL(el.href);
+            });
+          },
+        });
+
+        app.mount('#app');
+      })();
+    </script>
+  </body>
+</html>
