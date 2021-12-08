@@ -39,6 +39,7 @@ cd dist
 rm -rf EggLedger-mac.zip EggLedger
 mkdir EggLedger
 cp -r EggLedger.app EggLedger/
+cp ../README.macOS.txt EggLedger/README.txt
 zip -r EggLedger-mac.zip EggLedger
 rm -rf EggLedger
 echo "generated dist/EggLedger-mac.zip"
