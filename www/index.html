@@ -459,7 +459,7 @@
               if (playerId.value.trim() !== '' && playerIdSubmitRef.value !== null) {
                 playerIdSubmitRef.value.focus();
               } else {
-                playerIdInputRef.value.blur();
+                playerIdInputRef.value?.blur();
               }
             };
             const selectPlayerId = id => {
@@ -469,13 +469,13 @@
             // Close dropdown when clicking or focusing elsewhere.
             const handleMousedown = event => {
               const target = event.target;
-              if (!playerIdSelectRef.value.contains(target)) {
+              if (!playerIdSelectRef.value?.contains(target)) {
                 closePlayerIdDropdown();
               }
             };
             const handleFocus = () => {
               const active = document.activeElement;
-              if (!playerIdSelectRef.value.contains(active)) {
+              if (!playerIdSelectRef.value?.contains(active)) {
                 closePlayerIdDropdown();
               }
             };
