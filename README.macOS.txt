@@ -3,7 +3,7 @@ Installation instructions
 
 Before you run the app for the first time, you need to do the following to mark the app as safe, otherwise the app won't function correctly:
 
-* [underline green]#*Double click on the `preflight` script.*# `EggLedger.app` must not be moved to elsewhere at this point.
+* [underline green]#*Right click on the `preflight` script, choose "Open" and let the script run.*# `EggLedger.app` must not be moved to elsewhere at this point.
 
 You should be able to launch the app normally now.
 
