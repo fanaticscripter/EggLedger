@@ -1,15 +1,13 @@
-# Installation instructions
+Installation instructions
+=========================
 
-Due to extremely tight security restrictions on recent versions of macOS, and the unconventional data storage model of this app (everything within the directory where the app resides instead of scattered around ~/Library, ~/Documents, etc.), you need to jump through hoops to make the app work.
+Before you run the app for the first time, you need to do the following to mark the app as safe, otherwise the app won't function correctly:
 
-Assuming you downloaded EggLedger-mac.zip to your Downloads folder and unpacked it there, you should be able to find the app at EggLedger/EggLedger.app in Downloads. You need to open Terminal.app [1], enter the following command, and press return:
+* [underline green]#*Double click on the `preflight` script.*# `EggLedger.app` must not be moved to elsewhere at this point.
 
-    xattr -c ~/Downloads/EggLedger/EggLedger.app
+You should be able to launch the app normally now.
 
-This command removes the "com.apple.quarantine" attribute from the app, which otherwise causes the app to be run in a readonly jail without the ability to write data to the appropriate folder.
+You can also move the entire folder containing `EggLedger.app` to anywhere you like. Do NOT move the app separately to a shared folder like `/Applications`; the app writes data to the folder where `EggLedger.app` resides, you don't want to pollute a shared folder.
 
-If you downloaded and unpacked the app to a different location, you will need to change the path in the command above.
-
-When you launch the app for the first time, instead of double clicking, you may need to right click (control click) and choose "Open". Otherwise you may be asked to move the app to trash because the app is unsigned -- yes, it's unsigned because I'm not in the $100/yr Apple Developer Program.
-
-[1] You can launch Terminal.app from Spotlight, Launchpad, /Applications/Utilities. See https://support.apple.com/guide/terminal/open-or-quit-terminal-apd5265185d-f365-44cb-8b09-71a064a42125/mac
+[WARNING]
+If you encounter the [red]#"... cannot be opened because the developer cannot be verified"# error when launching either `preflight` or `EggLedger.app`, [green underline]#*instead of double clicking, right click on the script or app and choose "Open".*# The error occurs because the programs are not signed with a recognized developer certificate (only available to developers enrolled in Apple's paid Developer Program).

@@ -36,27 +36,10 @@
             <template v-if="appIsTranslocated">
               <p class="text-red-700">
                 EggLedger.app was launched in a jailed environment due to a macOS security feature.
-                The app cannot write data to disk in this environment. To work around this,
-                <a
-                  v-external-link
-                  href="https://support.apple.com/guide/terminal/open-or-quit-terminal-apd5265185d-f365-44cb-8b09-71a064a42125/mac"
-                  target="_blank"
-                  class="text-blue-500 hover:text-blue-600 underline"
-                  >open Terminal.app</a
-                >, enter the following command and press return:
-              </p>
-              <pre class="p-2 rounded-md bg-gray-50 text-xs">
-xattr -c ~/Downloads/EggLedger/EggLedger.app</pre
-              >
-              <p class="text-red-700">
-                Relaunching the app at this point should fix the problem. Change the app path in the
-                command above if you unpacked the app to a different path than
-                EggLedger/EggLedger.app in the Downloads folder.
-              </p>
-              <p>
-                (Normally, dragging the app to /Applications disables the jailing feature. However,
-                due to how this app stores data, /Applications is not a suitable location to put it.
-                See "Where does EggLedger store data?" in the About tab for more details.)
+                The app cannot write data to disk in this environment. To work around this, run the
+                <span class="text-indigo-700">preflight</span> script which came with the app, then
+                restart the app. See <span class="text-indigo-700">README.html</span> (also came
+                with the app) for details.
               </p>
             </template>
 

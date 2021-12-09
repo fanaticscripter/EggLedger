@@ -8,3 +8,6 @@ dev-app: build
 
 dev-css:
 	yarn tailwindcss -i www/index.pcss -o www/index.css --watch
+
+readme:
+	asciidoctor -a nofooter -a 'webfonts!' README.macOS.txt
