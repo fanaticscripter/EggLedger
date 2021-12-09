@@ -205,8 +205,8 @@ func main() {
 
 	chrome := lorca.LocateChrome()
 	if chrome == "" {
-		log.Fatal("unable to locate Chrome")
 		lorca.PromptDownload()
+		log.Fatal("unable to locate Chrome")
 		return
 	}
 
