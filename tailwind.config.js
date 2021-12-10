@@ -1,9 +1,12 @@
+const colors = require('tailwindcss/colors');
+
 module.exports = {
-  mode: 'jit',
-  purge: ['./www/*.html'],
-  darkMode: false,
+  content: ['./www/*.html'],
   theme: {
     extend: {
+      colors: {
+        green: colors.emerald,
+      },
       height: {
         stretch: 'stretch',
       },
