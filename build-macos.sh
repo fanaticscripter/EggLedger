@@ -37,14 +37,16 @@ cp ../README.macOS.html EggLedger/README.html
 cat >>EggLedger/preflight <<'EOF'
 #!/bin/zsh
 setopt nounset errexit
+promptexit () { read -sk1 '?[Press any key to exit]'; }
 success () { echo $'\e[32m'$1$'\e[0m'; }
-die () { echo $'\e[31m'"Error: $1"$'\e[0m' >&2; exit 1; }
+die () { echo $'\e[31m'"Error: $1"$'\e[0m' >&2; promptexit; exit 1; }
 here=$0:A:h
 app=$here/EggLedger.app
 [[ -d $app ]] || die "EggLedger.app not found at $here"
 echo "Removing com.apple.quarantine attribute from EggLedger.app..."
 xattr -c $app || die "Failed to remove com.apple.quarantine from EggLedger.app"
 success "Success! You can now launch EggLedger.app normally."
+promptexit
 EOF
 chmod +x EggLedger/preflight
 zip -r EggLedger-mac.zip EggLedger
