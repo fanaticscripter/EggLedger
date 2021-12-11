@@ -10,6 +10,8 @@ import (
 )
 
 type AppStorage struct {
+	sync.Mutex
+
 	KnownAccounts []Account `json:"known_accounts"`
 }
 
@@ -21,32 +23,31 @@ type Account struct {
 var (
 	_storageFile string
 	_storage     AppStorage
-	_storageLock sync.Mutex
 )
 
 func storageInit() {
 	_storageFile = filepath.Join(_internalDir, "storage.json")
-	loadStorage()
+	_storage.Load()
 }
 
-func loadStorage() {
-	_storageLock.Lock()
-	defer _storageLock.Unlock()
+func (s *AppStorage) Load() {
+	s.Lock()
+	defer s.Unlock()
 	encoded, err := os.ReadFile(_storageFile)
 	if err != nil {
 		log.Errorf("error loading storage.json: %s", err)
 		return
 	}
-	if err := json.Unmarshal(encoded, &_storage); err != nil {
+	if err := json.Unmarshal(encoded, &s); err != nil {
 		log.Errorf("error parsing storage.json: %s", err)
 		return
 	}
 }
 
-func persistStorage() {
-	_storageLock.Lock()
-	defer _storageLock.Unlock()
-	encoded, err := json.Marshal(_storage)
+func (s *AppStorage) Persist() {
+	s.Lock()
+	defer s.Unlock()
+	encoded, err := json.Marshal(s)
 	if err != nil {
 		log.Errorf("error serializing app storage: %s", err)
 		return
@@ -56,17 +57,17 @@ func persistStorage() {
 	}
 }
 
-func addKnownAccountToStorage(account Account) {
-	_storageLock.Lock()
+func (s *AppStorage) AddKnownAccount(account Account) {
+	s.Lock()
 	accounts := []Account{account}
 	seen := map[string]struct{}{account.Id: {}}
-	for _, a := range _storage.KnownAccounts {
+	for _, a := range s.KnownAccounts {
 		if _, exists := seen[a.Id]; !exists {
 			accounts = append(accounts, a)
 			seen[a.Id] = struct{}{}
 		}
 	}
-	_storage.KnownAccounts = accounts
-	_storageLock.Unlock()
-	go persistStorage()
+	s.KnownAccounts = accounts
+	s.Unlock()
+	go s.Persist()
 }

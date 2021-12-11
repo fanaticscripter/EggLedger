@@ -283,8 +283,8 @@ func main() {
 	})
 
 	ui.MustBind("knownAccounts", func() []Account {
-		_storageLock.Lock()
-		defer _storageLock.Unlock()
+		_storage.Lock()
+		defer _storage.Unlock()
 		return _storage.KnownAccounts
 	})
 
@@ -343,10 +343,10 @@ func main() {
 			} else {
 				perror("backup is from unknown time")
 			}
-			addKnownAccountToStorage(Account{Id: playerId, Nickname: nickname})
-			_storageLock.Lock()
+			_storage.AddKnownAccount(Account{Id: playerId, Nickname: nickname})
+			_storage.Lock()
 			updateKnownAccounts(_storage.KnownAccounts)
-			_storageLock.Unlock()
+			_storage.Unlock()
 			if checkInterrupt() {
 				return
 			}
