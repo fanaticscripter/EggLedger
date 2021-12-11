@@ -510,6 +510,22 @@ func main() {
 		}
 	})
 
+	ui.MustBind("checkForUpdates", func() bool {
+		log.Info("checking for updates...")
+		newVersion, err := checkForUpdates()
+		if err != nil {
+			log.Error(err)
+			return false
+		}
+		if newVersion == "" {
+			log.Infof("no new version found")
+			return false
+		} else {
+			log.Infof("new version found: %s", newVersion)
+			return true
+		}
+	})
+
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Fatal(err)

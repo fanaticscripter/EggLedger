@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -13,6 +14,9 @@ type AppStorage struct {
 	sync.Mutex
 
 	KnownAccounts []Account `json:"known_accounts"`
+
+	LastUpdateCheckAt  time.Time `json:"last_update_check_at"`
+	KnownLatestVersion string    `json:"known_latest_version"`
 }
 
 type Account struct {
@@ -68,6 +72,14 @@ func (s *AppStorage) AddKnownAccount(account Account) {
 		}
 	}
 	s.KnownAccounts = accounts
+	s.Unlock()
+	go s.Persist()
+}
+
+func (s *AppStorage) SetUpdateCheck(latestVersion string) {
+	s.Lock()
+	s.LastUpdateCheckAt = time.Now()
+	s.KnownLatestVersion = latestVersion
 	s.Unlock()
 	go s.Persist()
 }

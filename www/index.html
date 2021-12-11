@@ -362,6 +362,14 @@
             target="_blank"
             class="text-gray-500 hover:text-gray-600 underline"
             >mk2</a
+          ><span v-if="appHasUpdate" class="text-red-700">
+            (<a
+              v-external-link
+              href="https://github.com/fanaticscripter/EggLedger/releases"
+              target="_blank"
+              class="text-red-700 hover:text-red-800 underline"
+              >new version available!</a
+            >)</span
           >
         </footer>
       </div>
@@ -379,6 +387,7 @@
       // - openFile(file string)
       // - openFileInFolder(file string)
       // - openURL(url string)
+      // - checkForUpdates()
 
       // Interrupt worker if the page is reloaded or closed.
       window.addEventListener('beforeunload', async () => {
@@ -558,6 +567,12 @@
               { deep: true, flush: 'post' }
             );
 
+            // ===== Check for updates =====
+            const appHasUpdate = Vue.ref(false);
+            Vue.onMounted(async () => {
+              appHasUpdate.value = await window.checkForUpdates();
+            });
+
             // ===== Global bindings =====
             // Bind a bunch of state updater functions to the global scope so that the go side can
             // push state updates.
@@ -616,6 +631,8 @@
               messagesRef,
               messages,
               hhmmss,
+
+              appHasUpdate,
 
               openFile: window.openFile,
               openFileInFolder: window.openFileInFolder,
