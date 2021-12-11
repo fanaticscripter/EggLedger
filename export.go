@@ -1,10 +1,14 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/pkg/errors"
@@ -240,6 +244,124 @@ func exportMissionsToXlsx(missions []*mission, path string) error {
 	}
 
 	return nil
+}
+
+// findLastMatchingFile returns the path of the alphabetically last file in
+// directory matching the regexp pattern. Empty string is returned if there's no
+// file matching the pattern.
+func findLastMatchingFile(directory, pattern string) (string, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return "", err
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return "", err
+	}
+	var last string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if re.MatchString(name) {
+			last = name
+		}
+	}
+	if last == "" {
+		return "", nil
+	}
+	return filepath.Join(directory, last), nil
+}
+
+// cmpFiles compares two files and returns true if their contents are equal.
+// Both files can be fully read into memory; only suitable for small files.
+func cmpFiles(path1, path2 string) (bool, error) {
+	wrap := func(err error) error {
+		return errors.Wrapf(err, "error comparing files %s and %s", path1, path2)
+	}
+	s1, err := os.Stat(path1)
+	if err != nil {
+		return false, wrap(err)
+	}
+	s2, err := os.Stat(path2)
+	if err != nil {
+		return false, wrap(err)
+	}
+	if s1.Size() != s2.Size() {
+		return false, nil
+	}
+	b1, err := os.ReadFile(path1)
+	if err != nil {
+		return false, wrap(err)
+	}
+	b2, err := os.ReadFile(path2)
+	if err != nil {
+		return false, wrap(err)
+	}
+	return bytes.Equal(b1, b2), nil
+}
+
+// cmpZipFiles compares two zip files and returns true if their contents are
+// equal. This is needed since zip is not deterministic given the exact same
+// source files.
+func cmpZipFiles(path1, path2 string) (bool, error) {
+	wrap := func(err error) error {
+		return errors.Wrapf(err, "error comparing zip files %s and %s", path1, path2)
+	}
+	files1, err := readZipContent(path1)
+	if err != nil {
+		return false, wrap(err)
+	}
+	files2, err := readZipContent(path2)
+	if err != nil {
+		return false, wrap(err)
+	}
+	if len(files1) != len(files2) {
+		return false, nil
+	}
+	for name, content1 := range files1 {
+		content2, ok := files2[name]
+		if !ok {
+			return false, nil
+		}
+		if !bytes.Equal(content1, content2) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// readZipContent returns a map from file names to file contents for all files
+// in the zip.
+func readZipContent(path string) (map[string][]byte, error) {
+	r, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	files := make(map[string][]byte)
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			return files, err
+		}
+		body, err := io.ReadAll(rc)
+		if err != nil {
+			return files, err
+		}
+		if err := rc.Close(); err != nil {
+			return files, err
+		}
+		files[f.Name] = body
+	}
+	return files, nil
+}
+
+func filenameWithoutExt(f string) string {
+	f = filepath.Base(f)
+	ext := filepath.Ext(f)
+	return f[:len(f)-len(ext)]
 }
 
 func tempfilePattern(f string) string {

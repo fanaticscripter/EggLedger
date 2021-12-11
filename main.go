@@ -451,10 +451,26 @@ func main() {
 				updateState(AppState_FAILED)
 				return
 			}
+
+			// Determine the last exported pair of xlsx and csv for future comparison.
+			filenamePattern := regexp.QuoteMeta(playerId) + `\.\d{8}_\d{6}`
+			lastExportedXlsxFile, err := findLastMatchingFile(exportDir, filenamePattern+`\.xlsx`)
+			if err != nil {
+				log.Errorf("error locating last exported .xlsx file: %s", err)
+			}
+			lastExportedCsvFile, err := findLastMatchingFile(exportDir, filenamePattern+`\.csv`)
+			if err != nil {
+				log.Errorf("error locating last exported .csv file: %s", err)
+			}
+			if filenameWithoutExt(lastExportedXlsxFile) != filenameWithoutExt(lastExportedCsvFile) {
+				// If the xlsx and csv files aren't a pair, just leave them alone.
+				lastExportedXlsxFile = ""
+				lastExportedCsvFile = ""
+			}
+
 			filenameTimestamp := time.Now().Format("20060102_150405")
 
 			xlsxFile := filepath.Join(exportDir, playerId+"."+filenameTimestamp+".xlsx")
-			xlsxFileRel, _ := filepath.Rel(_rootDir, xlsxFile)
 			if err := exportMissionsToXlsx(exportMissions, xlsxFile); err != nil {
 				perror(err)
 				updateState(AppState_FAILED)
@@ -465,7 +481,6 @@ func main() {
 			}
 
 			csvFile := filepath.Join(exportDir, playerId+"."+filenameTimestamp+".csv")
-			csvFileRel, _ := filepath.Rel(_rootDir, csvFile)
 			if err := exportMissionsToCsv(exportMissions, csvFile); err != nil {
 				perror(err)
 				updateState(AppState_FAILED)
@@ -475,6 +490,44 @@ func main() {
 				return
 			}
 
+			// Check if both exports are unchanged compared to the last exported pair.
+			exportsUnchanged := lastExportedXlsxFile != "" && lastExportedCsvFile != "" && func() bool {
+				xlsxUnchanged, err := cmpZipFiles(xlsxFile, lastExportedXlsxFile)
+				if err != nil {
+					log.Error(err)
+					return false
+				}
+				if !xlsxUnchanged {
+					return false
+				}
+				csvUnchanged, err := cmpFiles(csvFile, lastExportedCsvFile)
+				if err != nil {
+					log.Error(err)
+					return false
+				}
+				if !csvUnchanged {
+					return false
+				}
+				return true
+			}()
+
+			if exportsUnchanged {
+				log.Info("exports unchanged, using last exported files and deleting new ones")
+				emitMessage("exports identical with existing data files, reusing", false)
+				err = os.Remove(xlsxFile)
+				if err != nil {
+					log.Errorf("error removing %s: %s", xlsxFile, err)
+				}
+				err = os.Remove(csvFile)
+				if err != nil {
+					log.Errorf("error removing %s: %s", csvFile, err)
+				}
+
+				xlsxFile = lastExportedXlsxFile
+				csvFile = lastExportedCsvFile
+			}
+			xlsxFileRel, _ := filepath.Rel(_rootDir, xlsxFile)
+			csvFileRel, _ := filepath.Rel(_rootDir, csvFile)
 			updateExportedFiles([]string{xlsxFileRel, csvFileRel})
 
 			pinfo("done.")
