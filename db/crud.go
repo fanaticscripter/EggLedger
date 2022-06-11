@@ -39,8 +39,8 @@ func InsertBackup(playerId string, timestamp float64, payload []byte, minimumTim
 			return nil
 		}
 		_, err = tx.Exec(`INSERT INTO
-			backup(player_id, backed_up_at, payload)
-			VALUES (?, ?, ?);`,
+			backup(player_id, backed_up_at, payload, payload_authenticated)
+			VALUES (?, ?, ?, FALSE);`,
 			playerId, timestamp, compressedPayload)
 		if err != nil {
 			return err
