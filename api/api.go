@@ -10,10 +10,11 @@ func RequestFirstContactRawPayloadWithContext(ctx context.Context, playerId stri
 	req := &ei.EggIncFirstContactRequest{
 		Rinfo:         NewBasicRequestInfo(playerId),
 		EiUserId:      &playerId,
+		DeviceId:      sptr("EggLedger"), // This is actually bot_name for /ei/bot_first_contact.
 		ClientVersion: u32ptr(ClientVersion),
 		Platform:      Platform.Enum(),
 	}
-	payload, err := RequestRawPayloadWithContext(ctx, "/ei/first_contact", req)
+	payload, err := RequestRawPayloadWithContext(ctx, "/ei/bot_first_contact", req)
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +23,7 @@ func RequestFirstContactRawPayloadWithContext(ctx context.Context, playerId stri
 
 func DecodeFirstContactPayload(payload []byte) (*ei.EggIncFirstContactResponse, error) {
 	msg := &ei.EggIncFirstContactResponse{}
-	err := DecodeAPIResponse(_apiPrefix+"/ei/first_contact", payload, msg, true)
+	err := DecodeAPIResponse(_apiPrefix+"/ei/bot_first_contact", payload, msg, false)
 	if err != nil {
 		return nil, err
 	}
